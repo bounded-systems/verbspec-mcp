@@ -1,0 +1,19 @@
+.github/workflows/publish.yml
+  s_77d3a33a1bddbb::t_3894f33b64bcff 3,5-10,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "e1bdda6d6b8f7acc52f75d91adff5fc9bd25bd74",
+  "prompts": {},
+  "sessions": {
+    "s_77d3a33a1bddbb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a7dedddb-056a-44d5-ad54-65daa9794848",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Robert DeLanghe <1240090+bdelanghe@users.noreply.github.com>"
+    }
+  }
+}
