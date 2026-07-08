@@ -24,14 +24,25 @@ shaped outputs are returned as MCP `structuredContent` (and advertised as an
 `outputSchema`); other outputs degrade to text. A verb that throws surfaces as an
 `isError` tool result, not a transport crash.
 
-## Not to be confused with `static-mcp`
+## Where this sits
 
-[`@bounded-systems/static-mcp`](https://jsr.io/@bounded-systems/static-mcp) serves
-verbs as a **read-only, Sigstore-verified static-response** server — every result
-is checked byte-for-byte against a signed manifest, no mutating surfaces.
-`verbspec-mcp` is the plainer, lower layer: it **runs the verbs** (whatever they
-do — checks, generators, mutations). Use `static-mcp` for verified static
-content; use `verbspec-mcp` to expose a live verb registry as tools.
+One verb spec, projected everywhere — and every MCP server in the org is the same
+shape: **verbspec verbs → this base → an optional topic layer.**
+
+```
+verbspec                author each verb once (Zod input/output + a summary)
+  └── verbspec-mcp       the base — any verb Registry → MCP tools   (this package)
+        └── <topic>-mcp  optional, domain-specific layers on top, e.g.:
+              • verified static-site / website builds — adds read-only,
+                Sigstore-verified static responses + a resource catalog
+                (today: @bounded-systems/static-mcp)
+```
+
+`verbspec-mcp` is the only mandatory piece: it just **runs the verbs** (checks,
+generators, mutations — whatever they do). Anything domain-specific is an
+*option* stacked on top — still nothing but verbspec verbs plus this base plus
+its own middleware. "Serve a verified website build" is one such topic, not the
+core; use the base alone to expose any live verb registry as tools.
 
 ## Install
 
