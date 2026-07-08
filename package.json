@@ -1,0 +1,69 @@
+{
+  "name": "@bounded-systems/verbspec-mcp",
+  "version": "0.1.0",
+  "description": "Turn any @bounded-systems/verbspec verb Registry into an MCP server. Each verb becomes an MCP tool with typed input/output from its Zod schema; runs over stdio today and is HTTP-ready via the official @modelcontextprotocol/sdk.",
+  "bounded": {
+    "tagline": "MCP server projection: hand it a verbspec Registry, get an MCP server — every verb an MCP tool, over stdio or HTTP",
+    "kind": "guest",
+    "facet": "verb",
+    "role": "mcp-server",
+    "domain": "interface/mcp"
+  },
+  "license": "MIT",
+  "author": "Robert DeLanghe",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "prepublishOnly": "bun run build"
+  },
+  "peerDependencies": {
+    "@bounded-systems/verbspec": "^0.3.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@bounded-systems/verbspec": "npm:@jsr/bounded-systems__verbspec@^0.3.1",
+    "@types/bun": "^1.3.14",
+    "typescript": "^6.0.3",
+    "zod": "^4.4.3"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "verbspec",
+    "stdio",
+    "tools",
+    "bounded-systems"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bounded-systems/verbspec-mcp.git"
+  },
+  "homepage": "https://github.com/bounded-systems/verbspec-mcp#readme"
+}

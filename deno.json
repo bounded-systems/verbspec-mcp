@@ -1,0 +1,30 @@
+{
+  "name": "@bounded-systems/verbspec-mcp",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "nodeModulesDir": "auto",
+  "imports": {
+    "zod": "npm:zod@^4.4.3",
+    "@modelcontextprotocol/sdk/": "npm:/@modelcontextprotocol/sdk@^1.29.0/",
+    "@bounded-systems/verbspec": "jsr:@bounded-systems/verbspec@^0.3.1"
+  },
+  "publish": {
+    "exclude": [
+      "**/*.test.ts",
+      "src/**/__tests__/**",
+      "dist/**",
+      "node_modules/**",
+      ".github/**",
+      ".release/**",
+      "tsconfig.json",
+      "tsconfig.build.json",
+      "package.json",
+      "bun.lock",
+      ".npmrc"
+    ]
+  },
+  "tasks": {
+    "check": "deno check src/index.ts"
+  }
+}
