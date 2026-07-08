@@ -44,6 +44,11 @@
   "peerDependencies": {
     "@bounded-systems/verbspec": "^0.3.0"
   },
+  "peerDependenciesMeta": {
+    "@bounded-systems/verbspec": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
