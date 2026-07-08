@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { defineVerb, type Registry } from "@bounded-systems/verbspec";
+import { defineVerb, type AnyVerbSpec, type Registry } from "@bounded-systems/verbspec";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { buildMcpServer } from "../index";
@@ -102,5 +102,53 @@ describe("buildMcpServer", () => {
     const client = await connectClient(registry, { filter: (v) => v.id === "echo" });
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name)).toEqual(["echo"]);
+  });
+
+  it("injects opts.deps into the verb's run (DI seam)", async () => {
+    // A verb whose run echoes back whatever deps it was handed.
+    const needsDeps = defineVerb({
+      id: "needs deps",
+      summary: "Returns the injected dep.",
+      actor: "test",
+      input: z.object({}),
+      output: z.object({ token: z.string() }),
+      run: (_input, deps?: { token?: string }) => ({ token: deps?.token ?? "MISSING" }),
+    });
+    const reg: Registry = { [needsDeps.id]: needsDeps };
+    const client = await connectClient(reg, { deps: () => ({ token: "injected" }) });
+    const res = await client.callTool({ name: "needs_deps", arguments: {} });
+    expect(res.structuredContent).toEqual({ token: "injected" });
+  });
+
+  it("lets mapResult shape content + attach _meta (topic-layer seam)", async () => {
+    const client = await connectClient(registry, {
+      mapResult: (out) => ({
+        content: [{ type: "text", text: `wrapped:${(out as { message: string }).message}` }],
+        structuredContent: out as Record<string, unknown>,
+        _meta: { verified: true },
+      }),
+    });
+    const res = await client.callTool({ name: "echo", arguments: { message: "hi" } });
+    expect((res.content as { text: string }[])[0]!.text).toBe("wrapped:hi");
+    expect(res._meta).toEqual({ verified: true });
+  });
+
+  it("tolerates a verb with no/loose output schema (no crash, no outputSchema)", async () => {
+    // Mirrors static-mcp's verifiedVerb, which sets output to undefined.
+    const looseOutput = {
+      id: "loose",
+      summary: "Has no output schema.",
+      actor: "test",
+      input: z.object({}),
+      output: undefined,
+      run: () => ({ anything: [1, 2, 3] }),
+    } as unknown as AnyVerbSpec;
+    const reg: Registry = { loose: looseOutput };
+    const client = await connectClient(reg);
+    const { tools } = await client.listTools();
+    expect(tools[0]!.outputSchema).toBeUndefined();
+    const res = await client.callTool({ name: "loose", arguments: {} });
+    expect(res.isError).toBeFalsy();
+    expect(JSON.parse((res.content as { text: string }[])[0]!.text)).toEqual({ anything: [1, 2, 3] });
   });
 });

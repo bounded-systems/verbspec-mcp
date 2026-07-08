@@ -53,27 +53,47 @@ deno add jsr:@bounded-systems/verbspec-mcp        # Deno / JSR-native
 npm install @bounded-systems/verbspec-mcp         # Node / npm (+ Bun)
 ```
 
-`@modelcontextprotocol/sdk` is a normal dependency; `zod` is a **peer**
-(`^3.25 || ^4`) — match the version your verbs are authored with.
+`@modelcontextprotocol/sdk` is a normal dependency; `@bounded-systems/verbspec`
+is a **peer** — the server shares your project's verbspec instance (and its
+`zod`), so there's no dual-package split.
 
 ## API
 
 ```ts
 interface McpServerOptions {
-  name?: string;                          // handshake server name (default "verbspec-mcp")
-  version?: string;                       // handshake version    (default "0.0.0")
+  name?: string;                           // handshake server name (default "verbspec-mcp")
+  version?: string;                        // handshake version     (default "0.0.0")
+  instructions?: string;                   // handshake instructions (how to use the tools)
   filter?: (verb: AnyVerbSpec) => boolean; // restrict which verbs are exposed
+  deps?: () => unknown;                    // inject a shared deps slice into every verb's run
+  mapResult?: (out, verb, args) => ToolResult | Promise<ToolResult>; // shape the tool result
 }
 
-// Build the configured SDK server WITHOUT a transport — attach your own (e.g. HTTP).
+// Build the configured SDK server WITHOUT a transport — attach your own (e.g. HTTP),
+// or register extra surfaces (resources) on the returned server.
 function buildMcpServer(registry: Registry, opts?: McpServerOptions): McpServer;
 
-// buildMcpServer + stdout hygiene + StdioServerTransport. The one-liner most servers want.
+// buildMcpServer + connectStdio. The one-liner most servers want.
 function serveStdio(registry: Registry, opts?: McpServerOptions): Promise<void>;
+
+// Connect a server you built yourself to stdio, with stdout hygiene. For servers that
+// also register resources and can't use the serveStdio shortcut.
+function connectStdio(server: McpServer): Promise<void>;
 ```
 
 For an HTTP server, take `buildMcpServer(...)` and `.connect()` it to a
 Streamable HTTP transport from the SDK.
+
+### Topic layers: `deps` + `mapResult`
+
+A domain-specific server stacks on the base through two seams instead of forking
+it. `deps` injects a shared capability slice into every verb's `run(input, deps)`
+(dependency injection — one client, or a test mock, for all verbs). `mapResult`
+takes control of how a verb's output becomes the tool result (content,
+`structuredContent`, `_meta`, `isError`). For example, the verified static-site
+layer threads its verifying client via `deps` and renders verified bytes +
+provenance `_meta` via `mapResult` — while the base still owns registration,
+schema validation, and running the verb.
 
 ### stdout hygiene
 
