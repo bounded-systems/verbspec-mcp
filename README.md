@@ -67,6 +67,7 @@ interface McpServerOptions {
   filter?: (verb: AnyVerbSpec) => boolean; // restrict which verbs are exposed
   deps?: () => unknown;                    // inject a shared deps slice into every verb's run
   mapResult?: (out, verb, args) => ToolResult | Promise<ToolResult>; // shape the tool result
+  dispatch?: boolean;                      // add a discover/dispatch pair covering the WHOLE registry
 }
 
 // Build the configured SDK server WITHOUT a transport — attach your own (e.g. HTTP),
@@ -94,6 +95,27 @@ takes control of how a verb's output becomes the tool result (content,
 layer threads its verifying client via `deps` and renders verified bytes +
 provenance `_meta` via `mapResult` — while the base still owns registration,
 schema validation, and running the verb.
+
+### A registry too big to register verb-by-verb: `dispatch`
+
+Registering every verb directly means every verb's tool schema ships in every request of every
+session. Fine for a handful of verbs; for hundreds, it degrades a client's tool-selection accuracy
+and spends context nobody asked to spend. `dispatch: true` adds a fixed-size alternative — two
+tools, `discover_verbs` and `dispatch_verb`, that together reach the whole registry regardless of
+`filter`:
+
+```ts
+await serveStdio(registry, { name: "spd", version: "0.1.0", dispatch: true });
+```
+
+- **`discover_verbs`** searches by id substring, summary keyword, or `actor` (the one grouping a
+  `VerbSpec` already carries) and returns matching ids with their summary and input schema.
+- **`dispatch_verb`** runs any verb by `id`, validating `args` against *that verb's own* input
+  schema, and returns the same result shape a directly-registered tool would.
+
+This composes with `filter` rather than replacing it: register a small hot set directly (as today,
+unchanged) and turn on `dispatch` to keep the rest reachable without paying its per-tool context
+cost. Off by default — every existing behavior, including `filter`, is unchanged when omitted.
 
 ### stdout hygiene
 

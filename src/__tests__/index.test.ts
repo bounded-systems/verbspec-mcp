@@ -8,7 +8,7 @@ import { z } from "zod";
 import { defineVerb, type AnyVerbSpec, type Registry } from "@bounded-systems/verbspec";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { buildMcpServer } from "../index";
+import { buildMcpServer, DISCOVER_TOOL_NAME, DISPATCH_TOOL_NAME } from "../index";
 
 const echo = defineVerb({
   id: "echo",
@@ -150,5 +150,116 @@ describe("buildMcpServer", () => {
     const res = await client.callTool({ name: "loose", arguments: {} });
     expect(res.isError).toBeFalsy();
     expect(JSON.parse((res.content as { text: string }[])[0]!.text)).toEqual({ anything: [1, 2, 3] });
+  });
+});
+
+// A verb from a different actor than `registry`'s (all "test"), used only by the discover/dispatch
+// tests below (`actor` search) — kept out of the shared `registry` so it can't perturb the
+// tool-count assertions above.
+const taggedThing = defineVerb({
+  id: "tagged thing",
+  summary: "A verb owned by a different actor, for the actor-search test.",
+  actor: "ops",
+  input: z.object({}),
+  output: z.object({ ok: z.boolean() }),
+  run: () => ({ ok: true }),
+});
+const metaRegistry: Registry = { ...registry, [taggedThing.id]: taggedThing };
+
+describe("discover_verbs + dispatch_verb (opt-in meta-tool pair)", () => {
+  it("is not registered unless opts.dispatch is on (existing behavior unchanged)", async () => {
+    const client = await connectClient(registry); // opts omitted entirely
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual(["boom", "echo", "noisy_check"]);
+  });
+
+  it("stays off when opts.dispatch is explicitly false, filter still works unchanged", async () => {
+    const client = await connectClient(registry, { filter: (v) => v.id === "echo", dispatch: false });
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name)).toEqual(["echo"]);
+  });
+
+  it("discover_verbs finds a verb by a summary keyword", async () => {
+    const client = await connectClient(metaRegistry, { dispatch: true });
+    const res = await client.callTool({ name: DISCOVER_TOOL_NAME, arguments: { query: "length" } });
+    expect(res.isError).toBeFalsy();
+    const { verbs, total } = res.structuredContent as {
+      verbs: { id: string; summary: string; actor: string; inputSchema: unknown }[];
+      total: number;
+    };
+    expect(total).toBe(1);
+    expect(verbs.map((v) => v.id)).toEqual(["echo"]);
+  });
+
+  it("discover_verbs restricts by actor — the one grouping a VerbSpec already carries", async () => {
+    const client = await connectClient(metaRegistry, { dispatch: true });
+    const res = await client.callTool({ name: DISCOVER_TOOL_NAME, arguments: { actor: "ops" } });
+    const { verbs, total } = res.structuredContent as {
+      verbs: { id: string; summary: string; actor: string; inputSchema: unknown }[];
+      total: number;
+    };
+    expect(total).toBe(1);
+    expect(verbs).toEqual([
+      {
+        id: "tagged thing",
+        summary: taggedThing.summary,
+        actor: "ops",
+        inputSchema: expect.objectContaining({ type: "object" }),
+      },
+    ]);
+  });
+
+  it("dispatch_verb runs a verb by id and returns the same shape a direct tool would", async () => {
+    const client = await connectClient(metaRegistry, { dispatch: true });
+    const res = await client.callTool({
+      name: DISPATCH_TOOL_NAME,
+      arguments: { id: "echo", args: { message: "hi" } },
+    });
+    expect(res.isError).toBeFalsy();
+    expect(res.structuredContent).toEqual({ message: "hi", length: 2 });
+    expect(JSON.parse((res.content as { type: string; text: string }[])[0]!.text)).toEqual({
+      message: "hi",
+      length: 2,
+    });
+  });
+
+  it("dispatch_verb rejects arguments violating the target verb's own input schema", async () => {
+    const client = await connectClient(metaRegistry, { dispatch: true });
+    const res = await client.callTool({
+      name: DISPATCH_TOOL_NAME,
+      arguments: { id: "echo", args: { message: 123 } },
+    });
+    expect(res.isError).toBe(true);
+  });
+
+  it("dispatch_verb fails cleanly on an unknown id, not a transport crash", async () => {
+    const client = await connectClient(metaRegistry, { dispatch: true });
+    const res = await client.callTool({ name: DISPATCH_TOOL_NAME, arguments: { id: "no such verb" } });
+    expect(res.isError).toBe(true);
+    expect((res.content as { type: string; text: string }[])[0]!.text).toContain("unknown verb");
+  });
+
+  it("a console.log inside a dispatched verb does not corrupt the call (same guard as a direct tool)", async () => {
+    const client = await connectClient(metaRegistry, { dispatch: true });
+    const res = await client.callTool({
+      name: DISPATCH_TOOL_NAME,
+      arguments: { id: "noisy check", args: {} },
+    });
+    expect(res.isError).toBeFalsy();
+    expect(res.structuredContent).toEqual({ ok: true });
+  });
+
+  it("composes with filter: a filtered-out verb is still reachable via dispatch_verb", async () => {
+    const client = await connectClient(metaRegistry, {
+      filter: (v) => v.id === "echo",
+      dispatch: true,
+    });
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([DISCOVER_TOOL_NAME, DISPATCH_TOOL_NAME, "echo"]);
+
+    // "boom" was never directly registered (filtered out) but dispatch still reaches it.
+    const res = await client.callTool({ name: DISPATCH_TOOL_NAME, arguments: { id: "boom" } });
+    expect(res.isError).toBe(true);
+    expect((res.content as { type: string; text: string }[])[0]!.text).toContain("kaboom");
   });
 });

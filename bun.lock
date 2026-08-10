@@ -6,12 +6,12 @@
       "name": "@bounded-systems/verbspec-mcp",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.30.0",
+        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@bounded-systems/verbspec": "npm:@jsr/bounded-systems__verbspec@^0.3.1",
         "@types/bun": "^1.3.14",
         "typescript": "^6.0.3",
-        "zod": "^4.4.3",
       },
       "peerDependencies": {
         "@bounded-systems/verbspec": "^0.3.0",
