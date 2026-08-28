@@ -63,7 +63,13 @@ updates:
     commit-message:
       prefix: "ci"
 
-  # npm dependencies (package.json + its lockfile).
+  # bun dependencies (package.json + bun.lock).
+  #
+  # CORRECTION: this entry said `npm` when it landed. Dependabot's npm
+  # ecosystem does not parse bun.lock, so an npm entry here reads as correct in
+  # review and updates NOTHING — the same silent no-op as having no entry at
+  # all, which is the bug the entry was added to fix. Dependabot ships a
+  # distinct `bun` ecosystem; prx already declares it.
   #
   # ADDED because this repo took the shared template WHOLESALE instead of
   # appending the github-actions entry to a config that already had npm — which
@@ -80,13 +86,13 @@ updates:
   #
   # Grouped and weekly for the same reason the actions entry above is grouped:
   # one PR per repo per week, not one per package.
-  - package-ecosystem: "npm"
+  - package-ecosystem: "bun"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
     groups:
-      npm:
+      bun:
         patterns:
           - "*"
     commit-message:
